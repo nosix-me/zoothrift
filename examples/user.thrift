@@ -3,7 +3,7 @@ struct User {
 	2:required string name;
 }
 
-service EchoSerice 
+service EchoService 
 {
 	string echo(1:User user)
 }
