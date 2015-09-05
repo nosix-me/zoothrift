@@ -28,10 +28,10 @@ func GetNewZooThrift(hosts string, sessionTimeout time.Duration, namespace, vers
 	if sessionTimeout == 0 {
 		sessionTimeout = 30000
 	}
-	// if version == "" {
-	// 	version = "1.0.0"
-	// }
-	return &ZooThrift{Hosts: "127.0.0.1:4180", SessionTimeout: 3000, Namespace: "test", Version: "1.0.0", Service: service}
+	if version == "" {
+		version = "1.0.0"
+	}
+	return &ZooThrift{Hosts: hosts, SessionTimeout: sessionTimeout, Namespace: namespace, Version: version, Service: service}
 }
 
 func rebuild(zt *ZooThrift) error {
@@ -51,12 +51,12 @@ func rebuild(zt *ZooThrift) error {
 	if err != nil {
 		return err
 	}
-	go EventChange(ch, zt)
+	go eventChange(ch, zt)
 	zt.childrenCache = children
 	return nil
 }
 
-func (zt *ZooThrift) GetZkclient() (interface{}, error) {
+func (zt *ZooThrift) GetZtClient() (interface{}, error) {
 	err := rebuild(zt)
 	if err != nil {
 		return nil, err
@@ -90,7 +90,7 @@ func (zt *ZooThrift) GetZkclient() (interface{}, error) {
 	}
 }
 
-func EventChange(ch <-chan zk.Event, zt *ZooThrift) {
+func eventChange(ch <-chan zk.Event, zt *ZooThrift) {
 	for {
 		select {
 		case event := <-ch:
