@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"gen-go/user"
 	"os"
+	"time"
 	"zoothrift"
 )
 
 func main() {
-	zt := zoothrift.GetNewZooThrift("127.0.0.1:4180", 3000, "test", "1.0.0", &user.EchoServiceClient{})
+	zt := zoothrift.GetNewZooThrift([]string{"127.0.0.1:4180"},time.Second* 3000, "test", "1.0.0", &user.EchoServiceClient{})
 
 	client, err := zt.GetZtClient()
 	if err != nil {

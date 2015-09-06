@@ -3,71 +3,65 @@ package zoothrift
 import (
 	"errors"
 	"git.apache.org/thrift.git/lib/go/thrift"
-	"github.com/samuel/go-zookeeper/zk"
-	"log"
+	myzk "github.com/samuel/go-zookeeper/zk"
 	"math/rand"
 	"net"
 	"reflect"
 	"strings"
 	"time"
+	"zoothrift/zk"
+)
+
+var (
+	ErrSerAddress = errors.New("zt: service address error")
 )
 
 type ZooThrift struct {
-	Hosts          string
+	Hosts          []string
 	SessionTimeout time.Duration
 	Namespace      string
-	Version        string "1.0.0"
+	Version        string
 	Service        interface{}
-	childrenCache  []string
+	nodesCache     []string
+	conn           *myzk.Conn
 }
 
-func GetNewZooThrift(hosts string, sessionTimeout time.Duration, namespace, version string, service interface{}) *ZooThrift {
-	if hosts == "" {
-		return nil
-	}
-	if sessionTimeout == 0 {
-		sessionTimeout = 30000
-	}
+func GetNewZooThrift(hosts []string, sessionTimeout time.Duration, namespace, version string, service interface{}) *ZooThrift {
 	if version == "" {
 		version = "1.0.0"
 	}
 	return &ZooThrift{Hosts: hosts, SessionTimeout: sessionTimeout, Namespace: namespace, Version: version, Service: service}
 }
 
-func rebuild(zt *ZooThrift) error {
-	if zt.Hosts == "" {
-		panic("hosts can't be empty")
+func refreshNodesCache(zt *ZooThrift) error {
+	if zt.conn == nil {
+		conn, err := zk.Connect(zt.Hosts, zt.SessionTimeout)
+		if err != nil {
+			return err
+		}
+		zt.conn = conn
 	}
 
-	addresses := strings.Split(zt.Hosts, ",")
-	if len(addresses) == 0 {
-		return errors.New("service not found!")
-	}
-	c, _, err := zk.Connect(addresses, zt.SessionTimeout*1000*1000)
+	nodes, _, err := zk.GetNodesW(zt.conn, "/rpc/"+zt.Namespace+"/"+zt.Version)
 	if err != nil {
 		return err
 	}
-	children, _, ch, err := c.ChildrenW("/rpc/" + zt.Namespace + "/" + zt.Version)
-	if err != nil {
-		return err
-	}
-	go eventChange(ch, zt)
-	zt.childrenCache = children
+	zt.nodesCache = nodes
 	return nil
 }
 
 func (zt *ZooThrift) GetZtClient() (interface{}, error) {
-	err := rebuild(zt)
+	err := refreshNodesCache(zt)
 	if err != nil {
 		return nil, err
 	}
-	if len(zt.childrenCache) == 0 {
-		return nil, errors.New("no service is running")
+	if len(zt.nodesCache) == 0 {
+		return nil, zk.ErrNoChild
 	}
 
 	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
 	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
-	ip, port := getServiceIpPort(zt.childrenCache)
+	ip, port := getServiceIpPort(zt.nodesCache)
 	if ip != "" && port != "" {
 		transport, err := thrift.NewTSocket(net.JoinHostPort(ip, port))
 		if err != nil {
@@ -86,21 +80,7 @@ func (zt *ZooThrift) GetZtClient() (interface{}, error) {
 		}
 		return zt.Service, nil
 	} else {
-		return nil, errors.New("service address error")
-	}
-}
-
-func eventChange(ch <-chan zk.Event, zt *ZooThrift) {
-	for {
-		select {
-		case event := <-ch:
-			if event.Type == zk.EventNodeChildrenChanged && event.Type == zk.EventNodeDataChanged {
-				log.Println("children changed, rebuild cache")
-				rebuild(zt)
-			} else {
-				log.Println("get event:", event.Type)
-			}
-		}
+		return nil, ErrSerAddress
 	}
 }
 
