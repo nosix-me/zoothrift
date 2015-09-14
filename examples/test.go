@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	zt := zoothrift.GetNewZooThrift([]string{"localhost:4180"}, time.Second*30, "test", "1.0.0", &user.EchoServiceClient{})
+	zt := zoothrift.NewZooThrift([]string{"localhost:4180"}, time.Second*30, "test", "1.0.0", &user.EchoServiceClient{})
 
 	client, err := zt.GetZtClient()
 	if err != nil {

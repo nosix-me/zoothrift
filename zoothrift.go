@@ -31,17 +31,18 @@ type ZooThrift struct {
 	lock           sync.Mutex
 }
 
-func GetNewZooThrift(hosts []string, sessionTimeout time.Duration, namespace, version string, service interface{}) *ZooThrift {
+// init a zoothrift
+func NewZooThrift(hosts []string, sessionTimeout time.Duration, namespace, version string, service interface{}) *ZooThrift {
 	if version == "" {
 		version = "1.0.0"
 	}
 	zooThrift := &ZooThrift{Hosts: hosts, SessionTimeout: sessionTimeout, Namespace: namespace, Version: version, Service: service}
 	zooThrift.connect()
 	go refreshNodesCache(zooThrift)
-	time.Sleep(time.Second)
 	return zooThrift
 }
 
+// connect to the zookeeper
 func (zt *ZooThrift) connect() error {
 	conn, err := zk.Connect(zt.Hosts, zt.SessionTimeout)
 	if err != nil {
@@ -51,6 +52,8 @@ func (zt *ZooThrift) connect() error {
 	zk.RegisterTemp(conn, "/rpc/"+zt.Namespace, []byte{'1'})
 	return nil
 }
+
+//refresh the nodes cache after received events
 func refreshNodesCache(zt *ZooThrift) {
 	for {
 		if zt.conn == nil {
@@ -71,12 +74,15 @@ func refreshNodesCache(zt *ZooThrift) {
 			time.Sleep(waitNodeDelaySecond)
 			continue
 		}
+		zt.lock.Lock()
 		zt.nodesCache = nodes
+		zt.lock.Unlock()
 		event := <-watch
 		log.Info("zk path: \"%s\" receive a event %v", fpath, event)
 	}
 }
 
+// get one client instance
 func (zt *ZooThrift) GetZtClient() (interface{}, error) {
 	for len(zt.nodesCache) == 0 {
 		time.Sleep(time.Second)
@@ -108,6 +114,7 @@ func (zt *ZooThrift) GetZtClient() (interface{}, error) {
 	}
 }
 
+//random service address
 func getServiceIpPort(addresses []string) (ip, port string) {
 	index := rand.Intn(len(addresses))
 	address := addresses[index]
