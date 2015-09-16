@@ -10,22 +10,15 @@ import (
 
 func main() {
 	zt := zoothrift.NewZooThrift([]string{"localhost:4180"}, time.Second*30, "test", "1.0.0", &user.EchoServiceClient{})
-
-	client, err := zt.GetZtClient()
-	if err != nil {
-		fmt.Println(err.Error())
-		os.Exit(0)
-	}
-	exec := client.(*user.EchoServiceClient)
 	for i := 0; i < 100; i++ {
-		result, err := exec.Echo(&user.User{Age: 30, Name: "test"})
+		rs, err := zoothrift.ProxyExec(zt, "Echo", &user.User{Age: 30, Name: "test"})
 		if err != nil {
-			client, _ = zt.GetZtClient()
-			if client != nil {
-				exec = client.(*user.EchoServiceClient)
-			}
+			fmt.Println(err)
+			os.Exit(0)
 		}
-		fmt.Println(result)
+		if len(rs) != 0 {
+			fmt.Println(rs[0].Interface().(string))
+		}
 		time.Sleep(time.Second)
 	}
 }

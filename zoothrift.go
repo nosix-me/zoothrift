@@ -18,6 +18,8 @@ var (
 	ErrSerAddress       = errors.New("zt: service address error")
 	waitNodeDelaySecond = time.Second * 1
 	waitNodeDelay       = 1
+	ErrMethodNotExists  = errors.New("zt: method not exists")
+	ErrProxyExec        = errors.New("zt: params error")
 )
 
 type ZooThrift struct {
@@ -85,7 +87,7 @@ func refreshNodesCache(zt *ZooThrift) {
 // get one client instance
 func (zt *ZooThrift) GetZtClient() (interface{}, error) {
 	for len(zt.nodesCache) == 0 {
-		time.Sleep(time.Second)
+		time.Sleep(time.Millisecond * 100)
 	}
 	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
 	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
@@ -125,4 +127,27 @@ func getServiceIpPort(addresses []string) (ip, port string) {
 	ip = item[0]
 	port = item[1]
 	return
+}
+
+// proxy exec method
+func ProxyExec(zt *ZooThrift, method string, params ...interface{}) ([]reflect.Value, error) {
+	if zt == nil || method == "" {
+		return nil, ErrProxyExec
+	}
+	for {
+		client, err := zt.GetZtClient()
+		if err != nil {
+			continue
+		}
+		proxy := reflect.ValueOf(client)
+		exec := proxy.MethodByName(method)
+		if !exec.IsValid() {
+			return nil, ErrMethodNotExists
+		}
+		param := make([]reflect.Value, len(params))
+		for i, item := range params {
+			param[i] = reflect.ValueOf(item)
+		}
+		return exec.Call(param), nil
+	}
 }
