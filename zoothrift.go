@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,7 @@ var (
 	waitNodeDelay       = 1
 	ErrMethodNotExists  = errors.New("zt: method not exists")
 	ErrProxyExec        = errors.New("zt: params error")
+	ErrEmptyHosts       = errors.New("zt: empty hosts")
 )
 
 type ZooThrift struct {
@@ -86,8 +88,9 @@ func refreshNodesCache(zt *ZooThrift) {
 
 // get one client instance
 func (zt *ZooThrift) GetZtClient() (interface{}, error) {
+	time.Sleep(time.Millisecond * 10)
 	for len(zt.nodesCache) == 0 {
-		time.Sleep(time.Millisecond * 100)
+		return nil, ErrEmptyHosts
 	}
 	transportFactory := thrift.NewTFramedTransportFactory(thrift.NewTTransportFactory())
 	protocolFactory := thrift.NewTBinaryProtocolFactoryDefault()
@@ -118,6 +121,19 @@ func (zt *ZooThrift) GetZtClient() (interface{}, error) {
 
 //random service address
 func getServiceIpPort(addresses []string) (ip, port string) {
+	for _, v := range addresses {
+		item := strings.Split(v, ":")
+		if len(item) == 3 {
+			size, err := strconv.Atoi(item[2])
+			if err != nil {
+				continue
+			} else {
+				for i := size - 1; i > 0; i-- {
+					addresses = append(addresses, v)
+				}
+			}
+		}
+	}
 	index := rand.Intn(len(addresses))
 	address := addresses[index]
 	item := strings.Split(address, ":")
@@ -137,7 +153,7 @@ func ProxyExec(zt *ZooThrift, method string, params ...interface{}) ([]reflect.V
 	for {
 		client, err := zt.GetZtClient()
 		if err != nil {
-			continue
+			return nil, err
 		}
 		proxy := reflect.ValueOf(client)
 		exec := proxy.MethodByName(method)
