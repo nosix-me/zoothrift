@@ -17,11 +17,11 @@ import (
 
 var (
 	ErrSerAddress       = errors.New("zt: service address error")
-	waitNodeDelaySecond = time.Second * 1
-	waitNodeDelay       = 1
 	ErrMethodNotExists  = errors.New("zt: method not exists")
 	ErrProxyExec        = errors.New("zt: params error")
 	ErrEmptyHosts       = errors.New("zt: empty hosts")
+	waitNodeDelaySecond = time.Second * 1
+	waitNodeDelay       = 1
 )
 
 type ZooThrift struct {
