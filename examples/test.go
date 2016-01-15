@@ -6,19 +6,23 @@ import (
 	"os"
 	"time"
 	"zoothrift"
+	"zoothrift/zk"
 )
 
 func main() {
-	zt := zoothrift.NewZooThrift([]string{"localhost:4180"}, time.Second*30, "test", "1.0.0", &user.EchoServiceClient{})
-	for i := 0; i < 100; i++ {
-		rs, err := zoothrift.ProxyExec(zt, "Echo", &user.User{Age: 30, Name: "test"})
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(0)
-		}
-		if len(rs) != 0 {
-			fmt.Println(rs[0].Interface().(string))
-		}
-		time.Sleep(time.Second)
+	conn, err := zk.Connect([]string{"localhost:4180"}, time.Second*30)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	provider := zoothrift.NewProvider(conn, "HelloService", "1.0.0")
+	time.Sleep(time.Second * 1)
+	zt := zoothrift.NewZooThrift(provider, &user.HelloServiceClient{})
+	rs, err := zoothrift.ProxyExec(zt, "Hello", "hello")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(0)
+	}
+	if len(rs) != 0 {
+		fmt.Println(rs[0].Interface().(string))
 	}
 }

@@ -20,7 +20,8 @@ func Usage() {
 	fmt.Fprintln(os.Stderr, "Usage of ", os.Args[0], " [-h host:port] [-u url] [-f[ramed]] function [arg1 [arg2...]]:")
 	flag.PrintDefaults()
 	fmt.Fprintln(os.Stderr, "\nFunctions:")
-	fmt.Fprintln(os.Stderr, "  string echo(User user)")
+	fmt.Fprintln(os.Stderr, "  string hello(string username)")
+	fmt.Fprintln(os.Stderr, "  string bye(string username)")
 	fmt.Fprintln(os.Stderr)
 	os.Exit(0)
 }
@@ -108,36 +109,31 @@ func main() {
 		Usage()
 		os.Exit(1)
 	}
-	client := user.NewEchoServiceClientFactory(trans, protocolFactory)
+	client := user.NewHelloServiceClientFactory(trans, protocolFactory)
 	if err := trans.Open(); err != nil {
 		fmt.Fprintln(os.Stderr, "Error opening socket to ", host, ":", port, " ", err)
 		os.Exit(1)
 	}
 
 	switch cmd {
-	case "echo":
+	case "hello":
 		if flag.NArg()-1 != 1 {
-			fmt.Fprintln(os.Stderr, "Echo requires 1 args")
+			fmt.Fprintln(os.Stderr, "Hello requires 1 args")
 			flag.Usage()
 		}
-		arg4 := flag.Arg(1)
-		mbTrans5 := thrift.NewTMemoryBufferLen(len(arg4))
-		defer mbTrans5.Close()
-		_, err6 := mbTrans5.WriteString(arg4)
-		if err6 != nil {
-			Usage()
-			return
-		}
-		factory7 := thrift.NewTSimpleJSONProtocolFactory()
-		jsProt8 := factory7.GetProtocol(mbTrans5)
-		argvalue0 := user.NewUser()
-		err9 := argvalue0.Read(jsProt8)
-		if err9 != nil {
-			Usage()
-			return
-		}
+		argvalue0 := flag.Arg(1)
 		value0 := argvalue0
-		fmt.Print(client.Echo(value0))
+		fmt.Print(client.Hello(value0))
+		fmt.Print("\n")
+		break
+	case "bye":
+		if flag.NArg()-1 != 1 {
+			fmt.Fprintln(os.Stderr, "Bye requires 1 args")
+			flag.Usage()
+		}
+		argvalue0 := flag.Arg(1)
+		value0 := argvalue0
+		fmt.Print(client.Bye(value0))
 		fmt.Print("\n")
 		break
 	case "":
