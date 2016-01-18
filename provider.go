@@ -29,8 +29,8 @@ func NewProvider(zkConn *myzk.Conn, Namespace, Version string) *Provider {
 
 func (p *Provider) buildCachePath() {
 	go func() {
+		fpath := "/rpc/" + p.Namespace + "/" + p.Version
 		for {
-			fpath := "/rpc/" + p.Namespace + "/" + p.Version
 			nodes, watch, err := zk.GetNodesW(p.ZkConn, fpath)
 			if err == zk.ErrNodeNotExist {
 				log.Warn("zk don't have node \"%s\", retry in %d second", fpath, waitNodeDelay)
