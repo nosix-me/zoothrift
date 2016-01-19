@@ -16,15 +16,18 @@ func main() {
 	}
 	provider := zoothrift.NewProvider(conn, "HelloService", "1.0.0")
 	time.Sleep(time.Second * 1)
-	zt := zoothrift.NewZooThrift(provider, &user.HelloServiceClient{}, 20)
-	for i := 0; i < 100000; i++ {
-		rs, err := zoothrift.ProxyExec(zt, "Hello", "hello")
-		if err != nil {
-			fmt.Println(err)
-			// os.Exit(0)
-		}
-		if len(rs) != 0 {
-			fmt.Println(rs[0].Interface().(string), i)
-		}
+	client := &user.HelloServiceClient{}
+	zt := zoothrift.NewZooThrift(provider, client, 20)
+	for i := 0; i < 5; i++ {
+		go func() {
+			rs, err := zoothrift.ProxyExec(zt, "Bye", "hello")
+			if err != nil {
+				fmt.Println(err)
+			}
+			if len(rs) != 0 {
+				fmt.Println(rs[0].Interface().(string), i)
+			}
+		}()
 	}
+	time.Sleep(time.Second * 5)
 }

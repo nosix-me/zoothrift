@@ -10,12 +10,13 @@ import (
 )
 
 var (
-	ErrSerAddress       = errors.New("zt: service address error")
-	waitNodeDelaySecond = time.Second * 1
-	waitNodeDelay       = 1
-	ErrMethodNotExists  = errors.New("zt: method not exists")
-	ErrProxyExec        = errors.New("zt: params error")
-	ErrEmptyHosts       = errors.New("zt: empty hosts")
+	ErrSerAddress          = errors.New("zt: service address error")
+	waitNodeDelaySecond    = time.Second * 1
+	waitNodeDelay          = 1
+	ErrMethodNotExists     = errors.New("zt: method not exists")
+	ErrProxyExec           = errors.New("zt: params error")
+	ErrEmptyHosts          = errors.New("zt: empty hosts")
+	ErrServicesUnavaliable = errors.New("zt: services unavaliable")
 )
 
 type ZooThrift struct {
@@ -50,10 +51,12 @@ func (zt *ZooThrift) getClient() interface{} {
 	} else {
 		return zt.pool.Peek()
 	}
+	count := 0
 	client := zt.pool.Peek()
-	for client != nil {
+	for client != nil && count < 3 {
 		client = zt.pool.Peek()
 		time.Sleep(time.Nanosecond * 1000 * 1000 * 100)
+		count++
 	}
 	return client
 }
@@ -96,15 +99,20 @@ func ProxyExec(zt *ZooThrift, method string, params ...interface{}) ([]reflect.V
 		return nil, ErrProxyExec
 	}
 	client := zt.getClient()
-	defer zt.returnClient(client)
-	proxy := reflect.ValueOf(client)
-	exec := proxy.MethodByName(method)
-	if !exec.IsValid() {
-		return nil, ErrMethodNotExists
+	if client != nil {
+		defer zt.returnClient(client)
+		proxy := reflect.ValueOf(client)
+		exec := proxy.MethodByName(method)
+		if !exec.IsValid() {
+			return nil, ErrMethodNotExists
+		}
+		param := make([]reflect.Value, len(params))
+		for i, item := range params {
+			param[i] = reflect.ValueOf(item)
+		}
+		return exec.Call(param), nil
+	} else {
+		return nil, ErrServicesUnavaliable
 	}
-	param := make([]reflect.Value, len(params))
-	for i, item := range params {
-		param[i] = reflect.ValueOf(item)
-	}
-	return exec.Call(param), nil
+
 }

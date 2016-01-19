@@ -60,7 +60,7 @@ func (q *Queue) Peek() interface{} {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	if q.count <= 0 {
-		panic("queue: Peek() called on empty queue")
+		return nil
 	}
 	item := q.buf[q.head]
 	q.count--
